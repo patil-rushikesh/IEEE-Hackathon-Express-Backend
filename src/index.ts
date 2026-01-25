@@ -20,7 +20,6 @@ app.use(
       "http://localhost:3000",
       "http://localhost:3001",
       "https://techfortomorrow.tech",
-      "https://dashboard.techfortomorrow.tech",
     ],
     credentials: true,
   }),
