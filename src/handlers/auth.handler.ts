@@ -1,8 +1,8 @@
-import { Request, Response } from 'express';
-import prisma from '../config/database';
-import { generateToken } from '../utils/jwt';
-import { comparePassword } from '../utils/password';
-import { sendSuccess, sendError, HttpStatus } from '../utils/response';
+import { Request, Response } from "express";
+import prisma from "../config/database";
+import { generateToken } from "../utils/jwt";
+import { comparePassword } from "../utils/password";
+import { sendSuccess, sendError, HttpStatus } from "../utils/response";
 
 /**
  * Login handler
@@ -11,34 +11,31 @@ export const login = async (req: Request, res: Response): Promise<void> => {
   try {
     const { email, password } = req.body;
 
-    // Find user by email
-    // console.log('Login attempt for email:', email);
-    const user = await prisma.user.findUnique({
-      where: { email:email, deleted: false },
+    const user = await prisma.user.findFirst({
+      where: {
+        email,
+        deleted: false,
+      },
     });
 
     if (!user) {
-      sendError(res, 'Invalid email or password', HttpStatus.UNAUTHORIZED);
+      sendError(res, "Invalid email or password", HttpStatus.UNAUTHORIZED);
       return;
     }
 
-    // Compare password
     const isPasswordValid = await comparePassword(password, user.password);
     if (!isPasswordValid) {
-      sendError(res, 'Invalid email or password', HttpStatus.UNAUTHORIZED);
+      sendError(res, "Invalid email or password", HttpStatus.UNAUTHORIZED);
       return;
     }
 
-    // Generate token
     const token = generateToken(user.id, user.role);
 
-    // Update last login
     await prisma.user.update({
       where: { id: user.id },
       data: { lastLogin: new Date() },
     });
 
-    // Set cookies
     const userInfo = {
       id: user.id,
       email: user.email,
@@ -46,44 +43,32 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       role: user.role,
     };
 
-    res.cookie('access_token', token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'none',
-      maxAge: 24 * 60 * 60 * 1000, // 24 hours
-    });
+    const isProd = process.env.NODE_ENV === "production";
 
-    res.cookie('role', user.role, {
+    res.cookie("access_token", token, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'none',
+      secure: isProd,
+      sameSite: isProd ? "none" : "lax",
       maxAge: 24 * 60 * 60 * 1000,
     });
 
-    res.cookie('user', encodeURIComponent(JSON.stringify(userInfo)), {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'none',
-      maxAge: 24 * 60 * 60 * 1000,
-    });
-
-    sendSuccess(res, {
-      token,
-      user: userInfo,
-    }, 'Login successful');
+    sendSuccess(res, { token, user: userInfo }, "Login successful");
   } catch (error) {
-    console.error('Login error:', error);
-    sendError(res, 'Login failed', HttpStatus.INTERNAL_SERVER_ERROR);
+    console.error("Login error:", error);
+    sendError(res, "Login failed", HttpStatus.INTERNAL_SERVER_ERROR);
   }
 };
 
 /**
  * Validate user token
  */
-export const validateUser = async (req: Request, res: Response): Promise<void> => {
+export const validateUser = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
   try {
     if (!req.user) {
-      sendError(res, 'User not authenticated', HttpStatus.UNAUTHORIZED);
+      sendError(res, "User not authenticated", HttpStatus.UNAUTHORIZED);
       return;
     }
 
@@ -98,21 +83,23 @@ export const validateUser = async (req: Request, res: Response): Promise<void> =
     });
 
     if (!user) {
-      sendError(res, 'User not found', HttpStatus.NOT_FOUND);
+      sendError(res, "User not found", HttpStatus.NOT_FOUND);
       return;
     }
 
     // Get the token from header
     const authHeader = req.headers.authorization;
-    const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : authHeader;
+    const token = authHeader?.startsWith("Bearer ")
+      ? authHeader.slice(7)
+      : authHeader;
 
     sendSuccess(res, {
       user,
       token,
     });
   } catch (error) {
-    console.error('Validate user error:', error);
-    sendError(res, 'Validation failed', HttpStatus.INTERNAL_SERVER_ERROR);
+    console.error("Validate user error:", error);
+    sendError(res, "Validation failed", HttpStatus.INTERNAL_SERVER_ERROR);
   }
 };
 
@@ -122,45 +109,52 @@ export const validateUser = async (req: Request, res: Response): Promise<void> =
 export const logout = async (req: Request, res: Response): Promise<void> => {
   try {
     // Clear cookies
-    res.cookie('access_token', '', {
+    res.cookie("access_token", "", {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'none',
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "none",
       maxAge: 0,
     });
 
-    res.cookie('role', '', {
+    res.cookie("role", "", {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'none',
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "none",
       maxAge: 0,
     });
 
-    res.cookie('user', '', {
+    res.cookie("user", "", {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'none',
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "none",
       maxAge: 0,
     });
 
-    sendSuccess(res, {
-      COOKIES_TO_CLEAR: ['access_token', 'role', 'user'],
-    }, 'Logout successful');
+    sendSuccess(
+      res,
+      {
+        COOKIES_TO_CLEAR: ["access_token", "role", "user"],
+      },
+      "Logout successful",
+    );
   } catch (error) {
-    console.error('Logout error:', error);
-    sendError(res, 'Logout failed', HttpStatus.INTERNAL_SERVER_ERROR);
+    console.error("Logout error:", error);
+    sendError(res, "Logout failed", HttpStatus.INTERNAL_SERVER_ERROR);
   }
 };
 
 /**
  * Change password
  */
-export const changePassword = async (req: Request, res: Response): Promise<void> => {
+export const changePassword = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
   try {
     const { currentPassword, newPassword } = req.body;
 
     if (!req.user) {
-      sendError(res, 'User not authenticated', HttpStatus.UNAUTHORIZED);
+      sendError(res, "User not authenticated", HttpStatus.UNAUTHORIZED);
       return;
     }
 
@@ -169,19 +163,22 @@ export const changePassword = async (req: Request, res: Response): Promise<void>
     });
 
     if (!user) {
-      sendError(res, 'User not found', HttpStatus.NOT_FOUND);
+      sendError(res, "User not found", HttpStatus.NOT_FOUND);
       return;
     }
 
     // Verify current password
-    const isPasswordValid = await comparePassword(currentPassword, user.password);
+    const isPasswordValid = await comparePassword(
+      currentPassword,
+      user.password,
+    );
     if (!isPasswordValid) {
-      sendError(res, 'Current password is incorrect', HttpStatus.UNAUTHORIZED);
+      sendError(res, "Current password is incorrect", HttpStatus.UNAUTHORIZED);
       return;
     }
 
     // Hash new password
-    const { hashPassword } = await import('../utils/password');
+    const { hashPassword } = await import("../utils/password");
     const hashedPassword = await hashPassword(newPassword);
 
     // Update password
@@ -193,9 +190,13 @@ export const changePassword = async (req: Request, res: Response): Promise<void>
       },
     });
 
-    sendSuccess(res, null, 'Password changed successfully');
+    sendSuccess(res, null, "Password changed successfully");
   } catch (error) {
-    console.error('Change password error:', error);
-    sendError(res, 'Failed to change password', HttpStatus.INTERNAL_SERVER_ERROR);
+    console.error("Change password error:", error);
+    sendError(
+      res,
+      "Failed to change password",
+      HttpStatus.INTERNAL_SERVER_ERROR,
+    );
   }
 };
