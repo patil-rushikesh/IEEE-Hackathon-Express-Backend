@@ -69,13 +69,15 @@ const startServer = async (): Promise<void> => {
     server.timeout = 15_000; // 15 seconds
     server.keepAliveTimeout = 60_000; // 60 seconds
       // Connect to Database and log success
-      try {
-        await prisma.$connect();
-        console.log('🔗 Connected to database');
-      } catch (err) {
-        console.error('⚠️ Unable to connect to database at startup:', err);
-      }
-
+      setImmediate(async () => {
+        try {
+          await prisma.$connect();
+          console.log('🗄️  Connected to database');
+        } catch (err) {
+          console.error('⚠️ Unable to connect to database at startup:', err);
+        }
+      });
+    // Graceful shutdown
     const gracefulShutdown = async (signal: string): Promise<void> => {
       console.log(`\n📤 Received ${signal}. Shutting down gracefully...`);
 
