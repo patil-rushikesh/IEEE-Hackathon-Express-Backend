@@ -5,6 +5,7 @@ import {
   registerTeam,
   getMyTeam,
   createOrUpdateSubmission,
+  getSubmission,
 } from '../handlers/participant.handler';
 import { getDeadlines } from '../handlers/coordinator.handler';
 
@@ -18,5 +19,6 @@ router.get('/deadlines', getDeadlines);
 router.use(authMiddleware('participant'));
 router.get('/team', getMyTeam);
 router.post('/submission', submissionValidator, createOrUpdateSubmission);
+router.get('/submission', getSubmission);
 
 export default router;

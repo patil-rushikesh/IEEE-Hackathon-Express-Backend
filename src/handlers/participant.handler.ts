@@ -343,6 +343,40 @@ export const createOrUpdateSubmission = async (req: Request, res: Response): Pro
     sendError(res, 'Failed to save submission', HttpStatus.INTERNAL_SERVER_ERROR);
   }
 };
+export const getSubmission = async(req: Request, res: Response): Promise<void> => {
+  try {
+    if (!req.user) {
+      sendError(res, 'User not authenticated', HttpStatus.UNAUTHORIZED);
+      return;
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: req.user.userId },
+      select: { teamId: true },
+    });
+
+    if (!user?.teamId) {
+      sendError(res, 'No team associated with this user', HttpStatus.NOT_FOUND);
+      return;
+    }
+
+    const submission = await prisma.submission.findUnique({
+      where: { teamId: user.teamId },
+    });
+
+    if (!submission) {
+      sendError(res, 'Submission not found', HttpStatus.NOT_FOUND);
+      return;
+    }
+
+    sendSuccess(res, { submission });
+  } catch (error) {
+    console.error('Get submission error:', error);
+    sendError(res, 'Failed to get submission', HttpStatus.INTERNAL_SERVER_ERROR);
+  }
+};
+
+
 
 /**
  * Get all submissions (for coordinators/evaluators)
