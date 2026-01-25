@@ -37,12 +37,15 @@ app.get('/', (req, res) => {
 app.get('/health/db', async (_req, res) => {
   try {
     await prisma.$queryRaw`SELECT 1`;
-    res.json({ db: 'ok' });
-  } catch (e) {
-    res.status(500).json({ db: 'error' });
+    res.json({ db: 'connected' });
+  } catch (e: any) {
+    console.error(e);
+    res.status(500).json({
+      db: 'error',
+      message: e.message
+    });
   }
 });
-
 
 // Error Handling
 app.use(notFoundHandler);
