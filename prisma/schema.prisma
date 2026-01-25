@@ -80,6 +80,7 @@ model Team {
   updatedAt DateTime @updatedAt
 
   // Relations
+  communityRepresentative CommunityRepresentative?
   members                 TeamMember[]
   facultyMentor           FacultyMentor?
   submission              Submission?
@@ -101,7 +102,7 @@ model TeamMember {
 
   // Relations
   team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
-
+  
   @@index([teamId])
   @@index([email])
 }
@@ -207,18 +208,16 @@ model Announcement {
   // Relations
   roles AnnouncementRole[]
 
-  @@index([status])
+  @@index([status]) 
 }
 
 model AnnouncementRole {
-  id              String       @id @default(uuid())
+  id              String   @id @default(uuid())
   announcementId  String
   role            UserRole
 
-  // Relations
   announcement Announcement @relation(fields: [announcementId], references: [id], onDelete: Cascade)
 
-  @@index([announcementId])
   @@unique([announcementId, role])
 }
 
