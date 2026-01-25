@@ -82,7 +82,6 @@ model Team {
   // Relations
   members                 TeamMember[]
   facultyMentor           FacultyMentor?
-  communityRepresentative CommunityRepresentative?
   submission              Submission?
   users                   User[]
 

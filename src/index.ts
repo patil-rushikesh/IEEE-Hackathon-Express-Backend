@@ -15,21 +15,7 @@ const app: Application = express();
 app.use(helmet());
 
 app.use(
-  cors({
-    origin: (origin, callback) => {
-      if (!origin) return callback(null, true);
-
-      if (config.allowedOrigins.includes(origin)) {
-        return callback(null, true);
-      }
-      return callback(new Error('Not allowed by CORS'));
-    },
-    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Origin', 'Content-Type', 'Accept', 'Authorization'],
-    exposedHeaders: ['Content-Length'],
-    credentials: true,
-    maxAge: 12 * 60 * 60, // 12 hours
-  })
+  cors()
 );
 
 // Body parsing

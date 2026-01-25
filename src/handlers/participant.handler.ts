@@ -2,7 +2,7 @@ import { Request, Response } from 'express';
 import prisma from '../config/database';
 import { hashPassword } from '../utils/password';
 import { sendSuccess, sendError, HttpStatus } from '../utils/response';
-import { MemberRole, Gender } from '@prisma/client';
+import { MemberRole, Gender } from '../generated/prisma/client/client';
 
 interface TeamMemberInput {
   fullName: string;
@@ -37,7 +37,6 @@ export const registerTeam = async (req: Request, res: Response): Promise<void> =
   try {
     const body: RegisterTeamInput = req.body;
 
-    // Validate team size
     if (body.members.length !== 6) {
       sendError(res, 'Team must have exactly 6 members', HttpStatus.BAD_REQUEST);
       return;
@@ -79,6 +78,7 @@ export const registerTeam = async (req: Request, res: Response): Promise<void> =
       }
     }
 
+    // console.log('Register team request body:', body);
     if (teamLeaderCount !== 1) {
       sendError(res, 'Team must have exactly one Team Leader', HttpStatus.BAD_REQUEST);
       return;
@@ -108,6 +108,8 @@ export const registerTeam = async (req: Request, res: Response): Promise<void> =
       return;
     }
 
+    
+
     // Create team with all related data in a transaction
     const team = await prisma.$transaction(async (tx) => {
       // Create team
@@ -116,12 +118,12 @@ export const registerTeam = async (req: Request, res: Response): Promise<void> =
           teamName: body.teamName,
           theme: body.theme,
           members: {
-            create: body.members.map((member) => ({
+            create: body.members.map((member:any) => ({
               fullName: member.fullName,
               email: member.email,
               gender: member.gender,
               role: member.role,
-              isIeeeMember: member.isIeeeMember || false,
+              isIeeeMember: member.isIeeeMember==="Yes"?true:false,
               ieeeNumber: member.ieeeNumber,
               schoolStandard: member.schoolStandard,
             })),
@@ -149,7 +151,7 @@ export const registerTeam = async (req: Request, res: Response): Promise<void> =
       });
 
       // Find team leader and create user account
-      const teamLeader = body.members.find((m) => m.role === 'TeamLeader');
+      const teamLeader = body.members.find((m:any) => m.role === 'TeamLeader');
       if (teamLeader) {
         const hashedPassword = await hashPassword('qwert123');
         await tx.user.create({

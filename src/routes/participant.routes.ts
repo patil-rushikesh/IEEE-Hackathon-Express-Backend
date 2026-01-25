@@ -11,7 +11,7 @@ import { getDeadlines } from '../handlers/coordinator.handler';
 const router = Router();
 
 // Public routes
-router.post('/register', registerTeamValidator, registerTeam);
+router.post('/register',  registerTeam);
 router.get('/deadlines', getDeadlines);
 
 // Protected routes (participant only)
