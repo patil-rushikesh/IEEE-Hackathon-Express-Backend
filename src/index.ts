@@ -52,7 +52,7 @@ app.use(errorHandler);
 const startServer = async (): Promise<void> => {
   try {
     // Connect to Redis (optional – won't crash app if unavailable)
-    await connectRedis();
+    // await connectRedis();
     const server = app.listen(config.port, () => {
       console.log(`🚀 Server running on port: ${config.port}`);
       console.log(`📍 Environment: ${config.nodeEnv}`);
