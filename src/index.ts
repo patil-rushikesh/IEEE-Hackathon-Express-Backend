@@ -68,42 +68,40 @@ const startServer = async (): Promise<void> => {
     // Server timeouts
     server.timeout = 15_000; // 15 seconds
     server.keepAliveTimeout = 60_000; // 60 seconds
-    // Connect to Database and log success
-    setImmediate(() => {
-      prisma
-        .$connect()
-        .then(() => console.log("🔗 Connected to database"))
-        .catch((err) => console.error("⚠️ Prisma connection failed:", err));
-    });
+      // Connect to Database and log success
+      try {
+        await prisma.$connect();
+        console.log('🔗 Connected to database');
+      } catch (err) {
+        console.error('⚠️ Unable to connect to database at startup:', err);
+      }
 
     const gracefulShutdown = async (signal: string): Promise<void> => {
       console.log(`\n📤 Received ${signal}. Shutting down gracefully...`);
 
       server.close(async () => {
-        console.log("🔌 HTTP server closed");
+        console.log('🔌 HTTP server closed');
 
         try {
           await prisma.$disconnect();
-          console.log("📤 Disconnected from database");
+          console.log('📤 Disconnected from database');
         } catch (err) {
-          console.error("⚠️ Error disconnecting from database:", err);
+          console.error('⚠️ Error disconnecting from database:', err);
         }
         process.exit(0);
       });
 
       // Force shutdown if cleanup hangs
       setTimeout(() => {
-        console.error(
-          "❌ Could not close connections in time. Forcefully shutting down.",
-        );
+        console.error('❌ Could not close connections in time. Forcefully shutting down.');
         process.exit(1);
       }, 10_000);
     };
 
-    process.on("SIGTERM", () => gracefulShutdown("SIGTERM"));
-    process.on("SIGINT", () => gracefulShutdown("SIGINT"));
+    process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+    process.on('SIGINT', () => gracefulShutdown('SIGINT'));
   } catch (error) {
-    console.error("❌ Failed to start server:", error);
+    console.error('❌ Failed to start server:', error);
     process.exit(1);
   }
 };
