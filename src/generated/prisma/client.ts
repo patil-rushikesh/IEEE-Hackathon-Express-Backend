@@ -39,7 +39,76 @@ export { Prisma }
 
 
 // file annotations for bundling tools to include these files
-path.join(__dirname, "query_engine-windows.dll.node")
-path.join(process.cwd(), "generated/prisma/query_engine-windows.dll.node")
+path.join(__dirname, "libquery_engine-darwin-arm64.dylib.node")
+path.join(process.cwd(), "generated/prisma/libquery_engine-darwin-arm64.dylib.node")
 
-
+/**
+ * Model User
+ * 
+ */
+export type User = Prisma.UserModel
+/**
+ * Model Team
+ * 
+ */
+export type Team = Prisma.TeamModel
+/**
+ * Model TeamMember
+ * 
+ */
+export type TeamMember = Prisma.TeamMemberModel
+/**
+ * Model FacultyMentor
+ * 
+ */
+export type FacultyMentor = Prisma.FacultyMentorModel
+/**
+ * Model CommunityRepresentative
+ * 
+ */
+export type CommunityRepresentative = Prisma.CommunityRepresentativeModel
+/**
+ * Model Submission
+ * 
+ */
+export type Submission = Prisma.SubmissionModel
+/**
+ * Model EvaluationCriteria
+ * 
+ */
+export type EvaluationCriteria = Prisma.EvaluationCriteriaModel
+/**
+ * Model Evaluation
+ * 
+ */
+export type Evaluation = Prisma.EvaluationModel
+/**
+ * Model EvaluationScore
+ * 
+ */
+export type EvaluationScore = Prisma.EvaluationScoreModel
+/**
+ * Model Announcement
+ * 
+ */
+export type Announcement = Prisma.AnnouncementModel
+/**
+ * Model AnnouncementRole
+ * 
+ */
+export type AnnouncementRole = Prisma.AnnouncementRoleModel
+/**
+ * Model Notification
+ * 
+ */
+export type Notification = Prisma.NotificationModel
+/**
+ * Model NotificationStatus
+ * 
+ */
+export type NotificationStatus = Prisma.NotificationStatusModel
+/**
+ * Model Deadline
+ * 
+ */
+export type Deadline = Prisma.DeadlineModel

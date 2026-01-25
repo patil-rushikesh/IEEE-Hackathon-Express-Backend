@@ -9,7 +9,49 @@
 * 🟢 You can import this file directly.
 */
 
+export const UserRole = {
+  admin: 'admin',
+  coordinator: 'coordinator',
+  evaluator: 'evaluator',
+  participant: 'participant',
+  head: 'head'
+} as const
+
+export type UserRole = (typeof UserRole)[keyof typeof UserRole]
 
 
-// This file is empty because there are no enums in the schema.
-export {}
+export const Gender = {
+  Male: 'Male',
+  Female: 'Female',
+  Other: 'Other'
+} as const
+
+export type Gender = (typeof Gender)[keyof typeof Gender]
+
+
+export const MemberRole = {
+  TeamLeader: 'TeamLeader',
+  TeamMember: 'TeamMember',
+  SchoolStudent: 'SchoolStudent'
+} as const
+
+export type MemberRole = (typeof MemberRole)[keyof typeof MemberRole]
+
+
+export const AnnouncementStatus = {
+  draft: 'draft',
+  published: 'published',
+  archived: 'archived'
+} as const
+
+export type AnnouncementStatus = (typeof AnnouncementStatus)[keyof typeof AnnouncementStatus]
+
+
+export const NotificationType = {
+  info: 'info',
+  warning: 'warning',
+  success: 'success',
+  error: 'error'
+} as const
+
+export type NotificationType = (typeof NotificationType)[keyof typeof NotificationType]

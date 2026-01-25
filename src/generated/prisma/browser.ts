@@ -17,4 +17,73 @@ import * as Prisma from './internal/prismaNamespaceBrowser'
 export { Prisma }
 export * as $Enums from './enums'
 export * from './enums';
-
+/**
+ * Model User
+ * 
+ */
+export type User = Prisma.UserModel
+/**
+ * Model Team
+ * 
+ */
+export type Team = Prisma.TeamModel
+/**
+ * Model TeamMember
+ * 
+ */
+export type TeamMember = Prisma.TeamMemberModel
+/**
+ * Model FacultyMentor
+ * 
+ */
+export type FacultyMentor = Prisma.FacultyMentorModel
+/**
+ * Model CommunityRepresentative
+ * 
+ */
+export type CommunityRepresentative = Prisma.CommunityRepresentativeModel
+/**
+ * Model Submission
+ * 
+ */
+export type Submission = Prisma.SubmissionModel
+/**
+ * Model EvaluationCriteria
+ * 
+ */
+export type EvaluationCriteria = Prisma.EvaluationCriteriaModel
+/**
+ * Model Evaluation
+ * 
+ */
+export type Evaluation = Prisma.EvaluationModel
+/**
+ * Model EvaluationScore
+ * 
+ */
+export type EvaluationScore = Prisma.EvaluationScoreModel
+/**
+ * Model Announcement
+ * 
+ */
+export type Announcement = Prisma.AnnouncementModel
+/**
+ * Model AnnouncementRole
+ * 
+ */
+export type AnnouncementRole = Prisma.AnnouncementRoleModel
+/**
+ * Model Notification
+ * 
+ */
+export type Notification = Prisma.NotificationModel
+/**
+ * Model NotificationStatus
+ * 
+ */
+export type NotificationStatus = Prisma.NotificationStatusModel
+/**
+ * Model Deadline
+ * 
+ */
+export type Deadline = Prisma.DeadlineModel

@@ -6,10 +6,263 @@
 
 generator client {
   provider = "prisma-client"
-  output   = "../generated/prisma"
+  output   = "../src/generated/prisma/client"
 }
 
 datasource db {
   provider = "mysql"
   url      = env("DATABASE_URL")
+}
+
+
+enum UserRole {
+  admin
+  coordinator
+  evaluator
+  participant
+  head
+}
+
+enum Gender {
+  Male
+  Female
+  Other
+}
+
+enum MemberRole {
+  TeamLeader
+  TeamMember
+  SchoolStudent
+}
+
+enum AnnouncementStatus {
+  draft
+  published
+  archived
+}
+
+enum NotificationType {
+  info
+  warning
+  success
+  error
+}
+
+// ==================== USER MODELS ====================
+
+model User {
+  id        String   @id @default(uuid())
+  name      String
+  email     String   @unique
+  password  String
+  role      UserRole @default(participant)
+  teamId    String?
+  deleted   Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  lastLogin DateTime?
+
+  // Relations
+  team                 Team?               @relation(fields: [teamId], references: [id])
+  notificationStatuses NotificationStatus[]
+
+  @@index([email])
+  @@index([role])
+}
+
+// ==================== TEAM MODELS ====================
+
+model Team {
+  id        String   @id @default(uuid())
+  teamName  String   @unique
+  theme     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  members                 TeamMember[]
+  facultyMentor           FacultyMentor?
+  communityRepresentative CommunityRepresentative?
+  submission              Submission?
+  users                   User[]
+
+  @@index([teamName])
+}
+
+model TeamMember {
+  id             String     @id @default(uuid())
+  fullName       String
+  email          String
+  gender         Gender
+  role           MemberRole
+  isIeeeMember   Boolean    @default(false)
+  ieeeNumber     String?
+  schoolStandard String?
+  teamId         String
+
+  // Relations
+  team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  @@index([teamId])
+  @@index([email])
+}
+
+model FacultyMentor {
+  id        String @id @default(uuid())
+  name      String
+  email     String
+  facultyId String
+  teamId    String @unique
+
+  // Relations
+  team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+}
+
+model CommunityRepresentative {
+  id          String @id @default(uuid())
+  name        String
+  email       String
+  affiliation String
+  teamId      String @unique
+
+  // Relations
+  team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+}
+
+// ==================== SUBMISSION MODELS ====================
+
+model Submission {
+  id               String   @id @default(uuid())
+  title            String?
+  tagline          String?
+  description      String?  @db.Text
+  problemStatement String?  @db.Text
+  demoVideoUrl     String?
+  liveLinkUrl      String?
+  codeRepoUrl      String?
+  pptUrl           String?
+  teamId           String   @unique
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  // Relations
+  team        Team         @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  evaluations Evaluation[]
+
+  @@index([teamId])
+}
+
+// ==================== EVALUATION MODELS ====================
+
+model EvaluationCriteria {
+  id          String @id @default(uuid())
+  criteria    String
+  weightage   Int
+  description String @db.Text
+
+  // Relations
+  evaluationScores EvaluationScore[]
+}
+
+model Evaluation {
+  id           String   @id @default(uuid())
+  submissionId String
+  evaluatorId  String
+  totalScore   Float?
+  comments     String?  @db.Text
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Relations
+  submission Submission        @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  scores     EvaluationScore[]
+
+  @@unique([submissionId, evaluatorId])
+  @@index([submissionId])
+  @@index([evaluatorId])
+}
+
+model EvaluationScore {
+  id           String @id @default(uuid())
+  evaluationId String
+  criteriaId   String
+  score        Float
+
+  // Relations
+  evaluation Evaluation         @relation(fields: [evaluationId], references: [id], onDelete: Cascade)
+  criteria   EvaluationCriteria @relation(fields: [criteriaId], references: [id])
+
+  @@unique([evaluationId, criteriaId])
+}
+
+// ==================== ANNOUNCEMENT & NOTIFICATION MODELS ====================
+
+model Announcement {
+  id        String             @id @default(uuid())
+  title     String
+  content   String             @db.Text
+  status    AnnouncementStatus @default(draft)
+  createdAt DateTime           @default(now())
+  updatedAt DateTime           @updatedAt
+
+  // Relations
+  roles AnnouncementRole[]
+
+  @@index([status])
+}
+
+model AnnouncementRole {
+  id              String       @id @default(uuid())
+  announcementId  String
+  role            UserRole
+
+  // Relations
+  announcement Announcement @relation(fields: [announcementId], references: [id], onDelete: Cascade)
+
+  @@index([announcementId])
+  @@unique([announcementId, role])
+}
+
+model Notification {
+  id        String           @id @default(uuid())
+  title     String
+  message   String           @db.Text
+  type      NotificationType @default(info)
+  createdAt DateTime         @default(now())
+
+  // Relations
+  statuses NotificationStatus[]
+
+  @@index([createdAt])
+}
+
+model NotificationStatus {
+  id             String   @id @default(uuid())
+  notificationId String
+  userId         String
+  isRead         Boolean  @default(false)
+  isPinned       Boolean  @default(false)
+  createdAt      DateTime @default(now())
+
+  // Relations
+  notification Notification @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([notificationId, userId])
+  @@index([userId])
+  @@index([notificationId])
+}
+
+// ==================== DEADLINE MODELS ====================
+
+model Deadline {
+  id                 String   @id @default(uuid())
+  registrationStart  DateTime
+  registrationEnd    DateTime
+  submissionDeadline DateTime
+  evaluationStart    DateTime
+  evaluationEnd      DateTime
+  resultDeclaration  DateTime
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
 }
