@@ -2,7 +2,7 @@ import { Request, Response } from 'express';
 import prisma from '../config/database';
 import { hashPassword } from '../utils/password';
 import { sendSuccess, sendError, HttpStatus } from '../utils/response';
-import { MemberRole, Gender } from '../generated/prisma/client/client';
+import { MemberRole, Gender } from '@prisma/client';
 
 interface TeamMemberInput {
   fullName: string;
@@ -48,7 +48,7 @@ export const registerTeam = async (req: Request, res: Response): Promise<void> =
     let femaleCount = 0;
 
     for (const member of body.members) {
-      if (member.role === 'TeamLeader') {
+      if (member.role === MemberRole.TeamLeader) {
         teamLeaderCount++;
         // Team leader must be IEEE member
         if (!member.isIeeeMember || !member.ieeeNumber) {
@@ -61,7 +61,7 @@ export const registerTeam = async (req: Request, res: Response): Promise<void> =
         }
       }
 
-      if (member.role === 'SchoolStudent') {
+      if (member.role === MemberRole.SchoolStudent) {
         schoolStudentCount++;
         if (!member.schoolStandard) {
           sendError(
@@ -73,7 +73,7 @@ export const registerTeam = async (req: Request, res: Response): Promise<void> =
         }
       }
 
-      if (member.gender === 'Female') {
+      if (member.gender === Gender.Female) {
         femaleCount++;
       }
     }
