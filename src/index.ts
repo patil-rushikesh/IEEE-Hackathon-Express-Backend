@@ -53,6 +53,14 @@ app.get('/health/db', async (_req, res) => {
   }
 });
 
+app.get("/debug/env", (_req, res) => {
+  res.json({
+    hasDatabaseUrl: !!process.env.DATABASE_URL,
+    length: process.env.DATABASE_URL?.length ?? 0
+  });
+});
+
+
 // Error Handling
 app.use(notFoundHandler);
 app.use(errorHandler);
