@@ -29,6 +29,11 @@ app.use(morgan(config.nodeEnv === 'development' ? 'dev' : 'combined'));
 // Routes
 app.use('/', routes);
 
+
+app.get('/', (req, res) => {
+  res.send('IEEE Hackathon Backend is running!');
+});
+
 // Error Handling
 app.use(notFoundHandler);
 app.use(errorHandler);
