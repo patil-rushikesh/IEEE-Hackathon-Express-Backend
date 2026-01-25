@@ -7,7 +7,7 @@ import cookieParser from 'cookie-parser';
 import { config } from './config';
 import routes from './routes';
 import { errorHandler, notFoundHandler } from './middleware/error.middleware';
-import { connectRedis, closeRedis } from './config/redis';
+
 import prisma from './config/database';
 
 const app: Application = express();
@@ -17,7 +17,6 @@ app.use(helmet());
 app.use(
   cors({
     origin: (origin, callback) => {
-      // Allow requests with no origin (e.g., mobile apps, curl)
       if (!origin) return callback(null, true);
 
       if (config.allowedOrigins.includes(origin)) {
@@ -48,11 +47,9 @@ app.use('/', routes);
 app.use(notFoundHandler);
 app.use(errorHandler);
 
-// Server Startup & Graceful Shutdown
 const startServer = async (): Promise<void> => {
   try {
-    // Connect to Redis (optional – won't crash app if unavailable)
-    // await connectRedis();
+    // ...existing code...
     const server = app.listen(config.port, () => {
       console.log(`🚀 Server running on port: ${config.port}`);
       console.log(`📍 Environment: ${config.nodeEnv}`);
@@ -61,6 +58,13 @@ const startServer = async (): Promise<void> => {
     // Server timeouts
     server.timeout = 15_000; // 15 seconds
     server.keepAliveTimeout = 60_000; // 60 seconds
+      // Connect to Database and log success
+      try {
+        await prisma.$connect();
+        console.log('🔗 Connected to database');
+      } catch (err) {
+        console.error('⚠️ Unable to connect to database at startup:', err);
+      }
 
     const gracefulShutdown = async (signal: string): Promise<void> => {
       console.log(`\n📤 Received ${signal}. Shutting down gracefully...`);
@@ -74,14 +78,6 @@ const startServer = async (): Promise<void> => {
         } catch (err) {
           console.error('⚠️ Error disconnecting from database:', err);
         }
-
-        try {
-          await closeRedis();
-          console.log('📤 Disconnected from Redis');
-        } catch (err) {
-          console.error('⚠️ Error disconnecting from Redis:', err);
-        }
-
         process.exit(0);
       });
 
