@@ -25,7 +25,6 @@ export const handleValidationErrors = (
   next();
 };
 
-// ==================== AUTH VALIDATORS ====================
 
 export const loginValidator = [
   body('email')

@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import { UserRole } from './../generated/prisma/client/client';
+import { UserRole } from '@prisma/client';
 import { validateToken, JWTPayload } from '../utils/jwt';
 import { sendError, HttpStatus } from '../utils/response';
 
