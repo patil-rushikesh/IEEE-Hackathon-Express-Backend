@@ -29,9 +29,5 @@ export const config = {
   maxFileSize: parseInt(process.env.MAX_FILE_SIZE || '10485760', 10), // 10MB default
 };
 
-if (!config.port) {
-  console.error('PORT is missing');
-  process.exit(1);
-}
 
 export default config;
