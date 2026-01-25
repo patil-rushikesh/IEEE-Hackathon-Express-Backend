@@ -34,6 +34,16 @@ app.get('/', (req, res) => {
   res.send('IEEE Hackathon Backend is running!');
 });
 
+app.get('/health/db', async (_req, res) => {
+  try {
+    await prisma.$queryRaw`SELECT 1`;
+    res.json({ db: 'ok' });
+  } catch (e) {
+    res.status(500).json({ db: 'error' });
+  }
+});
+
+
 // Error Handling
 app.use(notFoundHandler);
 app.use(errorHandler);
