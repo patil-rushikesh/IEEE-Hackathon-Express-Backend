@@ -15,7 +15,7 @@ const app: Application = express();
 app.use(helmet());
 
 app.use(
-  cors()
+  cors({origin:"http://localhost:3000",credentials:true})
 );
 
 // Body parsing

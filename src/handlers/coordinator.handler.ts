@@ -37,6 +37,7 @@ export const updateDeadlines = async (req: Request, res: Response): Promise<void
       resultDeclaration,
     } = req.body;
 
+    // console.log('Updating deadlines with data:', req.body);
     // Try to find existing deadline
     const existingDeadline = await prisma.deadline.findFirst();
 

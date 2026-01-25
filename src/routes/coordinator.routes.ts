@@ -18,10 +18,10 @@ import { resetUserPassword } from '../handlers/admin.handler';
 const router = Router();
 
 // All coordinator routes require coordinator role
+router.get('/deadlines', getDeadlines);
 router.use(authMiddleware('coordinator'));
 
 // Deadline management
-router.get('/deadlines', getDeadlines);
 router.put('/deadlines', updateDeadlineValidator, updateDeadlines);
 
 // Password reset
