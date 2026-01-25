@@ -52,6 +52,7 @@ export const addUser = async (req: Request, res: Response): Promise<void> => {
  */
 export const getUsers = async (req: Request, res: Response): Promise<void> => {
   try {
+    // console.log("Fetching all users");
     const users = await prisma.user.findMany({
       where: { deleted: false },
       select: {
@@ -65,6 +66,8 @@ export const getUsers = async (req: Request, res: Response): Promise<void> => {
       },
       orderBy: { createdAt: 'desc' },
     });
+
+    console.log(`Fetched ${users.length} users`);
 
     sendSuccess(res, { users });
   } catch (error) {

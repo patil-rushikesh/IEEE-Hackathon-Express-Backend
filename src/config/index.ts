@@ -10,8 +10,7 @@ export const config = {
   // Database
   databaseUrl: process.env.DATABASE_URL || '',
   
-  // Redis
-  redisUrl: process.env.REDIS_URL || 'redis://localhost:6379',
+
   
   // JWT
   jwtSecret: process.env.JWT_SECRET || 'your-secret-key',

@@ -1,7 +1,6 @@
 import { Request, Response } from 'express';
 import prisma from '../config/database';
 import { sendSuccess, sendError, HttpStatus } from '../utils/response';
-import redis from '../config/redis';
 
 /**
  * Get notifications for a user
@@ -176,7 +175,6 @@ export const createNotification = async (req: Request, res: Response): Promise<v
 
     // Publish to Redis for real-time updates
     try {
-      await redis.publish('notifications', JSON.stringify(notification));
     } catch (redisError) {
       console.warn('Redis publish failed:', redisError);
       // Continue even if Redis fails
@@ -205,19 +203,8 @@ export const streamNotifications = async (req: Request, res: Response): Promise<
   res.write(`data: ${JSON.stringify({ type: 'connected', userId })}\n\n`);
 
   // Subscribe to Redis notifications channel
-  const subscriber = redis.duplicate();
   
-  try {
-    await subscriber.subscribe('notifications');
-    
-    subscriber.on('message', (channel, message) => {
-      if (channel === 'notifications') {
-        res.write(`data: ${message}\n\n`);
-      }
-    });
-  } catch (error) {
-    console.warn('Redis subscription failed:', error);
-  }
+  
 
   // Send heartbeat every 30 seconds
   const heartbeatInterval = setInterval(() => {
@@ -227,12 +214,6 @@ export const streamNotifications = async (req: Request, res: Response): Promise<
   // Cleanup on close
   req.on('close', async () => {
     clearInterval(heartbeatInterval);
-    try {
-      await subscriber.unsubscribe('notifications');
-      await subscriber.quit();
-    } catch (error) {
-      console.warn('Error cleaning up SSE connection:', error);
-    }
   });
 };
 

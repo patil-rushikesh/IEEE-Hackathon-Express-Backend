@@ -5,23 +5,60 @@ import { comparePassword } from "../utils/password";
 import { sendSuccess, sendError, HttpStatus } from "../utils/response";
 
 /**
+ * Set authentication cookies: access_token, user, role
+ */
+const setCookies = (
+  res: Response,
+  accessToken: string,
+  role: string,
+  user: { id: string; email: string; name: string; role: string },
+): void => {
+  const isProd = process.env.NODE_ENV === "production";
+
+  const userPayload = {
+    id: user.id,
+    email: user.email,
+    name: user.name,
+    role: user.role,
+  };
+
+  const encodedUser = encodeURIComponent(JSON.stringify(userPayload));
+
+  const commonOptions = {
+    httpOnly: true as const,
+    secure: isProd,
+    sameSite: isProd ? ("none" as const) : ("lax" as const),
+    maxAge: 24 * 60 * 60 * 1000, // 1 day
+    path: "/",
+  };
+
+  res.cookie("access_token", accessToken, commonOptions);
+  res.cookie("user", encodedUser, commonOptions);
+  res.cookie("role", role, commonOptions);
+};
+
+/**
  * Login handler
  */
 export const login = async (req: Request, res: Response): Promise<void> => {
   try {
     const { email, password } = req.body;
 
+    console.log("Login attempt for email:", email.trim().toLowerCase());
+
     const user = await prisma.user.findFirst({
       where: {
-        email,
+        email: email.trim().toLowerCase(),
         deleted: false,
       },
     });
 
+    console.log("User found:", user);
     if (!user) {
       sendError(res, "Invalid email or password", HttpStatus.UNAUTHORIZED);
       return;
     }
+
 
     const isPasswordValid = await comparePassword(password, user.password);
     if (!isPasswordValid) {
@@ -43,14 +80,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       role: user.role,
     };
 
-    const isProd = process.env.NODE_ENV === "production";
-
-    res.cookie("access_token", token, {
-      httpOnly: true,
-      secure: isProd,
-      sameSite: isProd ? "none" : "lax",
-      maxAge: 24 * 60 * 60 * 1000,
-    });
+    setCookies(res, token, user.role, userInfo);
 
     sendSuccess(res, { token, user: userInfo }, "Login successful");
   } catch (error) {
