@@ -77,7 +77,6 @@ model Team {
   theme     String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-
   // Relations
   communityRepresentative CommunityRepresentative?
   members                 TeamMember[]
@@ -97,6 +96,9 @@ model TeamMember {
   isIeeeMember   Boolean    @default(false)
   ieeeNumber     String?
   schoolStandard String?
+  schoolIdPdf    String?
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
   teamId         String
 
   // Relations

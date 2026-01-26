@@ -3,15 +3,17 @@ import prisma from '../config/database';
 import { hashPassword } from '../utils/password';
 import { sendSuccess, sendError, HttpStatus } from '../utils/response';
 import { MemberRole, Gender } from '@prisma/client';
+import multer = require('multer');
 
 interface TeamMemberInput {
   fullName: string;
   email: string;
   gender: Gender;
   role: MemberRole;
-  isIeeeMember?: boolean;
+  isIeeeMember?: string | boolean;
   ieeeNumber?: string;
   schoolStandard?: string;
+  schoolIdPdf?: string;
 }
 
 interface RegisterTeamInput {
@@ -35,157 +37,150 @@ interface RegisterTeamInput {
  */
 export const registerTeam = async (req: Request, res: Response): Promise<void> => {
   try {
-    const body: RegisterTeamInput = req.body;
+    const body: RegisterTeamInput = {
+      ...req.body,
+      members: JSON.parse(req.body.members),
+    }
+    console.log("Register team body:", body)
+    const files = req.files as Express.Multer.File[]
 
     if (body.members.length !== 6) {
-      sendError(res, 'Team must have exactly 6 members', HttpStatus.BAD_REQUEST);
-      return;
+      sendError(res, "Team must have exactly 6 members", HttpStatus.BAD_REQUEST)
+      return
     }
 
-    // Validate team composition
-    let teamLeaderCount = 0;
-    let schoolStudentCount = 0;
-    let femaleCount = 0;
+    let teamLeaderCount = 0
+    let schoolStudentCount = 0
+    let femaleCount = 0
 
-    for (const member of body.members) {
+    // Create a map of uploaded files by field name (schoolIdPdf_0, schoolIdPdf_1, etc.)
+    const fileMap = new Map<string, Express.Multer.File>()
+    if (files && Array.isArray(files)) {
+      files.forEach(file => {
+        if (file.fieldname.startsWith("schoolIdPdf_")) {
+          fileMap.set(file.fieldname, file)
+        }
+      })
+    }
+
+    for (let i = 0; i < body.members.length; i++) {
+      const member = body.members[i]
+
       if (member.role === MemberRole.TeamLeader) {
-        teamLeaderCount++;
-        // Team leader must be IEEE member
+        teamLeaderCount++
         if (!member.isIeeeMember || !member.ieeeNumber) {
           sendError(
             res,
-            'Team Leader must be an IEEE member with valid membership number',
+            "Team Leader must be an IEEE member with valid membership number",
             HttpStatus.BAD_REQUEST
-          );
-          return;
+          )
+          return
         }
       }
 
       if (member.role === MemberRole.SchoolStudent) {
-        schoolStudentCount++;
+        schoolStudentCount++
         if (!member.schoolStandard) {
           sendError(
             res,
-            'School Student must have a valid school standard (6th-9th)',
+            "School Student must have a valid school standard (7th-9th)",
             HttpStatus.BAD_REQUEST
-          );
-          return;
+          )
+          return
         }
+
+        // Get the uploaded PDF file for this school student by index
+        const pdfFile = fileMap.get(`schoolIdPdf_${i}`)
+        if (!pdfFile) {
+          sendError(res, "School ID PDF is required for School Student", HttpStatus.BAD_REQUEST)
+          return
+        }
+
+        member.schoolIdPdf = pdfFile.filename
       }
 
-      if (member.gender === Gender.Female) {
-        femaleCount++;
-      }
+      if (member.gender === Gender.Female) femaleCount++
     }
 
-    // console.log('Register team request body:', body);
     if (teamLeaderCount !== 1) {
-      sendError(res, 'Team must have exactly one Team Leader', HttpStatus.BAD_REQUEST);
-      return;
+      sendError(res, "Team must have exactly one Team Leader", HttpStatus.BAD_REQUEST)
+      return
     }
 
-    if (schoolStudentCount === 0) {
+    if (schoolStudentCount !== 1) {
       sendError(
         res,
-        'Team must have at least one School Student (6th-9th standard)',
+        "Team must have exactly one School Student",
         HttpStatus.BAD_REQUEST
-      );
-      return;
+      )
+      return
     }
 
     if (femaleCount === 0) {
-      sendError(res, 'Team must have at least one female member', HttpStatus.BAD_REQUEST);
-      return;
+      sendError(res, "Team must have at least one female member", HttpStatus.BAD_REQUEST)
+      return
     }
 
-    // Check if team name already exists
     const existingTeam = await prisma.team.findUnique({
       where: { teamName: body.teamName },
-    });
+    })
 
     if (existingTeam) {
-      sendError(res, 'Team name already exists', HttpStatus.CONFLICT);
-      return;
+      sendError(res, "Team name already exists", HttpStatus.CONFLICT)
+      return
     }
 
-    
-
-    // Create team with all related data in a transaction
     const team = await prisma.$transaction(async (tx) => {
-      // Create team
       const newTeam = await tx.team.create({
         data: {
           teamName: body.teamName,
           theme: body.theme,
           members: {
-            create: body.members.map((member:any) => ({
+            create: body.members.map((member) => ({
               fullName: member.fullName,
               email: member.email,
               gender: member.gender,
               role: member.role,
-              isIeeeMember: member.isIeeeMember==="Yes"?true:false,
-              ieeeNumber: member.ieeeNumber,
-              schoolStandard: member.schoolStandard,
+              isIeeeMember: member.isIeeeMember === "Yes" || member.isIeeeMember === true,
+              ieeeNumber: member.ieeeNumber || null,
+              schoolStandard: member.schoolStandard || null,
+              schoolIdPdf: member.schoolIdPdf || null, // 👈 FILE PATH
             })),
           },
-          facultyMentor: {
-            create: {
-              name: body.facultyMentor.name,
-              email: body.facultyMentor.email,
-              facultyId: body.facultyMentor.facultyId,
-            },
-          },
-          communityRepresentative: {
-            create: {
-              name: body.communityRepresentative.name,
-              email: body.communityRepresentative.email,
-              affiliation: body.communityRepresentative.affiliation,
-            },
-          },
         },
-        include: {
-          members: true,
-          facultyMentor: true,
-          communityRepresentative: true,
-        },
-      });
+        include: { members: true },
+      })
 
-      // Find team leader and create user account
-      const teamLeader = body.members.find((m:any) => m.role === 'TeamLeader');
+      const teamLeader = body.members.find(
+        (m: any) => m.role === MemberRole.TeamLeader
+      )
+
       if (teamLeader) {
-        const hashedPassword = await hashPassword('qwert123');
         await tx.user.create({
           data: {
             name: teamLeader.fullName,
             email: teamLeader.email,
-            password: hashedPassword,
-            role: 'participant',
+            password: await hashPassword("qwert123"),
+            role: "participant",
             teamId: newTeam.id,
           },
-        });
+        })
       }
 
-      return newTeam;
-    });
+      return newTeam
+    })
 
     sendSuccess(
       res,
-      {
-        teamId: team.id,
-        teamName: team.teamName,
-      },
-      'Team registered successfully',
+      { teamId: team.id, teamName: team.teamName },
+      "Team registered successfully",
       HttpStatus.CREATED
-    );
+    )
   } catch (error: any) {
-    console.error('Register team error:', error);
-    if (error.code === 'P2002') {
-      sendError(res, 'Team name already exists', HttpStatus.CONFLICT);
-      return;
-    }
-    sendError(res, 'Failed to register team', HttpStatus.INTERNAL_SERVER_ERROR);
+    console.error("Register team error:", error)
+    sendError(res, "Failed to register team", HttpStatus.INTERNAL_SERVER_ERROR)
   }
-};
+}
 
 /**
  * Get all teams
