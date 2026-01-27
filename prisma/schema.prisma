@@ -98,7 +98,7 @@ model TeamMember {
   schoolStandard String?
   schoolIdPdf    String?
   createdAt      DateTime   @default(now())
-  updatedAt      DateTime?   
+  updatedAt      DateTime   @default(now()) @updatedAt   
   teamId         String
 
   // Relations
