@@ -8,12 +8,11 @@ import {
   getSubmission,
 } from '../handlers/participant.handler';
 import { getDeadlines } from '../handlers/coordinator.handler';
-import { upload } from '../config/multer';
 
 const router = Router();
 
 // Public routes
-router.post('/register', upload.any(), registerTeam);
+router.post('/register', registerTeam);
 router.get('/deadlines', getDeadlines);
 
 // Protected routes (participant only)

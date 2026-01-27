@@ -3,7 +3,7 @@ import prisma from '../config/database';
 import { hashPassword } from '../utils/password';
 import { sendSuccess, sendError, HttpStatus } from '../utils/response';
 import { MemberRole, Gender } from '@prisma/client';
-import multer = require('multer');
+import cloudinary from '../config/cloudinary';
 
 interface TeamMemberInput {
   fullName: string;
@@ -37,12 +37,16 @@ interface RegisterTeamInput {
  */
 export const registerTeam = async (req: Request, res: Response): Promise<void> => {
   try {
+    console.log("=== Register Team Request ===")
+    console.log("req.files:", (req as any).files ? Object.keys((req as any).files) : "undefined")
+    console.log("req.body keys:", Object.keys(req.body))
+    
     const body: RegisterTeamInput = {
       ...req.body,
       members: JSON.parse(req.body.members),
     }
     console.log("Register team body:", body)
-    const files = req.files as Express.Multer.File[]
+    const files = (req as any).files as { [key: string]: any }
 
     if (body.members.length !== 6) {
       sendError(res, "Team must have exactly 6 members", HttpStatus.BAD_REQUEST)
@@ -54,14 +58,69 @@ export const registerTeam = async (req: Request, res: Response): Promise<void> =
     let femaleCount = 0
 
     // Create a map of uploaded files by field name (schoolIdPdf_0, schoolIdPdf_1, etc.)
-    const fileMap = new Map<string, Express.Multer.File>()
-    if (files && Array.isArray(files)) {
-      files.forEach(file => {
-        if (file.fieldname.startsWith("schoolIdPdf_")) {
-          fileMap.set(file.fieldname, file)
+    const fileMap = new Map<string, any>()
+    if (files) {
+      for (const fieldname in files) {
+        if (fieldname.startsWith("schoolIdPdf_")) {
+          const fileData = files[fieldname]
+          // express-fileupload provides either a single file object or an array
+          const file = Array.isArray(fileData) ? fileData[0] : fileData
+          if (file) {
+            fileMap.set(fieldname, file)
+            console.log(`File found: ${fieldname}`, file.name, file.size)
+          }
         }
-      })
+      }
     }
+
+    console.log(`Total files found: ${fileMap.size}`)
+
+    // Upload files to Cloudinary first
+    const uploadPromises = Array.from(fileMap.entries()).map(async ([fieldname, file]) => {
+      return new Promise<{ fieldname: string; url: string }>((resolve, reject) => {
+        const uniqueFileName = `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`
+        console.log(`Starting upload for ${fieldname}...`)
+        
+        const uploadStream = cloudinary.uploader.upload_stream(
+          {
+            folder: 'ieee-hackathon/school-ids',
+            public_id: uniqueFileName,
+            resource_type: 'auto',
+          },
+          (error, result) => {
+            if (error) {
+              console.error(`❌ Upload failed for ${fieldname}:`, error)
+              reject(error)
+            } else {
+              console.log(`✅ Upload successful for ${fieldname}:`, result!.secure_url)
+              resolve({ fieldname, url: result!.secure_url })
+            }
+          }
+        )
+
+        uploadStream.on('error', (err) => {
+          console.error(`Stream error for ${fieldname}:`, err)
+          reject(err)
+        })
+
+        uploadStream.end(file.data)
+      })
+    })
+
+    let cloudinaryUrls: { [key: string]: string } = {}
+    try {
+      const uploadResults = await Promise.all(uploadPromises)
+      uploadResults.forEach(({ fieldname, url }) => {
+        cloudinaryUrls[fieldname] = url
+        console.log(`✅ Uploaded to Cloudinary: ${fieldname} -> ${url}`)
+      })
+    } catch (uploadError: any) {
+      console.error("Cloudinary upload error:", uploadError)
+      sendError(res, "Failed to upload files", HttpStatus.INTERNAL_SERVER_ERROR)
+      return
+    }
+
+    console.log("Cloudinary URLs:", cloudinaryUrls)
 
     for (let i = 0; i < body.members.length; i++) {
       const member = body.members[i]
@@ -89,14 +148,18 @@ export const registerTeam = async (req: Request, res: Response): Promise<void> =
           return
         }
 
-        // Get the uploaded PDF file for this school student by index
-        const pdfFile = fileMap.get(`schoolIdPdf_${i}`)
-        if (!pdfFile) {
+        // Get the uploaded PDF URL for this school student by index
+        const pdfUrl = cloudinaryUrls[`schoolIdPdf_${i}`]
+        console.log(`Member ${i} is SchoolStudent, looking for schoolIdPdf_${i}`)
+        console.log(`Found URL: ${pdfUrl}`)
+        
+        if (!pdfUrl) {
           sendError(res, "School ID PDF is required for School Student", HttpStatus.BAD_REQUEST)
           return
         }
 
-        member.schoolIdPdf = pdfFile.filename
+        member.schoolIdPdf = pdfUrl
+        console.log(`✅ Assigned Cloudinary URL to member ${i}: ${member.schoolIdPdf}`)
       }
 
       if (member.gender === Gender.Female) femaleCount++
@@ -131,21 +194,28 @@ export const registerTeam = async (req: Request, res: Response): Promise<void> =
     }
 
     const team = await prisma.$transaction(async (tx) => {
+      console.log("Final members data before insert:")
+      const membersToCreate = body.members.map((member) => ({
+        fullName: member.fullName,
+        email: member.email,
+        gender: member.gender,
+        role: member.role,
+        isIeeeMember: member.isIeeeMember === "Yes" || member.isIeeeMember === true,
+        ieeeNumber: member.ieeeNumber || null,
+        schoolStandard: member.schoolStandard || null,
+        schoolIdPdf: member.schoolIdPdf || null,
+      }))
+      
+      membersToCreate.forEach((m, idx) => {
+        console.log(`  Member ${idx}: role=${m.role}, schoolIdPdf=${m.schoolIdPdf}`)
+      })
+      
       const newTeam = await tx.team.create({
         data: {
           teamName: body.teamName,
           theme: body.theme,
           members: {
-            create: body.members.map((member) => ({
-              fullName: member.fullName,
-              email: member.email,
-              gender: member.gender,
-              role: member.role,
-              isIeeeMember: member.isIeeeMember === "Yes" || member.isIeeeMember === true,
-              ieeeNumber: member.ieeeNumber || null,
-              schoolStandard: member.schoolStandard || null,
-              schoolIdPdf: member.schoolIdPdf || null, // 👈 FILE PATH
-            })),
+            create: membersToCreate,
           },
         },
         include: { members: true },

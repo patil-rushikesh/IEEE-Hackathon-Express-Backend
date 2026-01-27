@@ -3,6 +3,7 @@ import cors from "cors";
 import helmet from "helmet";
 import morgan from "morgan";
 import cookieParser from "cookie-parser";
+import fileUpload from "express-fileupload";
 
 import { config } from "./config";
 import routes from "./routes";
@@ -25,6 +26,12 @@ app.use(
     credentials: true,
   }),
 );
+
+// File upload middleware - must come before express.json() for form data
+app.use(fileUpload({
+  limits: { fileSize: 2 * 1024 * 1024 }, // 2MB limit
+  useTempFiles: false, // Don't use temp files, work with memory
+}));
 
 // Body parsing
 app.use(express.json({ limit: "10mb" }));
