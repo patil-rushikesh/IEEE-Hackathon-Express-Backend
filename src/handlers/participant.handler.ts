@@ -37,15 +37,10 @@ interface RegisterTeamInput {
  */
 export const registerTeam = async (req: Request, res: Response): Promise<void> => {
   try {
-    console.log("=== Register Team Request ===")
-    console.log("req.files:", (req as any).files ? Object.keys((req as any).files) : "undefined")
-    console.log("req.body keys:", Object.keys(req.body))
-    
     const body: RegisterTeamInput = {
       ...req.body,
       members: JSON.parse(req.body.members),
     }
-    console.log("Register team body:", body)
     const files = (req as any).files as { [key: string]: any }
 
     if (body.members.length !== 6) {
@@ -67,20 +62,14 @@ export const registerTeam = async (req: Request, res: Response): Promise<void> =
           const file = Array.isArray(fileData) ? fileData[0] : fileData
           if (file) {
             fileMap.set(fieldname, file)
-            console.log(`File found: ${fieldname}`, file.name, file.size)
           }
         }
       }
     }
-
-    console.log(`Total files found: ${fileMap.size}`)
-
     // Upload files to Cloudinary first
     const uploadPromises = Array.from(fileMap.entries()).map(async ([fieldname, file]) => {
       return new Promise<{ fieldname: string; url: string }>((resolve, reject) => {
         const uniqueFileName = `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`
-        console.log(`Starting upload for ${fieldname}...`)
-        
         const uploadStream = cloudinary.uploader.upload_stream(
           {
             folder: 'ieee-hackathon/school-ids',
@@ -89,17 +78,14 @@ export const registerTeam = async (req: Request, res: Response): Promise<void> =
           },
           (error, result) => {
             if (error) {
-              console.error(`❌ Upload failed for ${fieldname}:`, error)
               reject(error)
             } else {
-              console.log(`✅ Upload successful for ${fieldname}:`, result!.secure_url)
               resolve({ fieldname, url: result!.secure_url })
             }
           }
         )
 
         uploadStream.on('error', (err) => {
-          console.error(`Stream error for ${fieldname}:`, err)
           reject(err)
         })
 
@@ -112,15 +98,12 @@ export const registerTeam = async (req: Request, res: Response): Promise<void> =
       const uploadResults = await Promise.all(uploadPromises)
       uploadResults.forEach(({ fieldname, url }) => {
         cloudinaryUrls[fieldname] = url
-        console.log(`✅ Uploaded to Cloudinary: ${fieldname} -> ${url}`)
       })
     } catch (uploadError: any) {
       console.error("Cloudinary upload error:", uploadError)
       sendError(res, "Failed to upload files", HttpStatus.INTERNAL_SERVER_ERROR)
       return
     }
-
-    console.log("Cloudinary URLs:", cloudinaryUrls)
 
     for (let i = 0; i < body.members.length; i++) {
       const member = body.members[i]
@@ -150,8 +133,6 @@ export const registerTeam = async (req: Request, res: Response): Promise<void> =
 
         // Get the uploaded PDF URL for this school student by index
         const pdfUrl = cloudinaryUrls[`schoolIdPdf_${i}`]
-        console.log(`Member ${i} is SchoolStudent, looking for schoolIdPdf_${i}`)
-        console.log(`Found URL: ${pdfUrl}`)
         
         if (!pdfUrl) {
           sendError(res, "School ID PDF is required for School Student", HttpStatus.BAD_REQUEST)
@@ -159,7 +140,6 @@ export const registerTeam = async (req: Request, res: Response): Promise<void> =
         }
 
         member.schoolIdPdf = pdfUrl
-        console.log(`✅ Assigned Cloudinary URL to member ${i}: ${member.schoolIdPdf}`)
       }
 
       if (member.gender === Gender.Female) femaleCount++
@@ -194,7 +174,6 @@ export const registerTeam = async (req: Request, res: Response): Promise<void> =
     }
 
     const team = await prisma.$transaction(async (tx) => {
-      console.log("Final members data before insert:")
       const membersToCreate = body.members.map((member) => ({
         fullName: member.fullName,
         email: member.email,
@@ -205,10 +184,6 @@ export const registerTeam = async (req: Request, res: Response): Promise<void> =
         schoolStandard: member.schoolStandard || null,
         schoolIdPdf: member.schoolIdPdf || null,
       }))
-      
-      membersToCreate.forEach((m, idx) => {
-        console.log(`  Member ${idx}: role=${m.role}, schoolIdPdf=${m.schoolIdPdf}`)
-      })
       
       const newTeam = await tx.team.create({
         data: {
