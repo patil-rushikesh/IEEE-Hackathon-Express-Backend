@@ -66,45 +66,8 @@ export const registerTeam = async (req: Request, res: Response): Promise<void> =
         }
       }
     }
-    // Upload files to Cloudinary first
-    const uploadPromises = Array.from(fileMap.entries()).map(async ([fieldname, file]) => {
-      return new Promise<{ fieldname: string; url: string }>((resolve, reject) => {
-        const uniqueFileName = `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`
-        const uploadStream = cloudinary.uploader.upload_stream(
-          {
-            folder: 'ieee-hackathon/school-ids',
-            public_id: uniqueFileName,
-            resource_type: 'auto',
-          },
-          (error, result) => {
-            if (error) {
-              reject(error)
-            } else {
-              resolve({ fieldname, url: result!.secure_url })
-            }
-          }
-        )
 
-        uploadStream.on('error', (err) => {
-          reject(err)
-        })
-
-        uploadStream.end(file.data)
-      })
-    })
-
-    let cloudinaryUrls: { [key: string]: string } = {}
-    try {
-      const uploadResults = await Promise.all(uploadPromises)
-      uploadResults.forEach(({ fieldname, url }) => {
-        cloudinaryUrls[fieldname] = url
-      })
-    } catch (uploadError: any) {
-      console.error("Cloudinary upload error:", uploadError)
-      sendError(res, "Failed to upload files", HttpStatus.INTERNAL_SERVER_ERROR)
-      return
-    }
-
+    // Validate members before uploading files
     for (let i = 0; i < body.members.length; i++) {
       const member = body.members[i]
 
@@ -131,15 +94,11 @@ export const registerTeam = async (req: Request, res: Response): Promise<void> =
           return
         }
 
-        // Get the uploaded PDF URL for this school student by index
-        const pdfUrl = cloudinaryUrls[`schoolIdPdf_${i}`]
-        
-        if (!pdfUrl) {
+        // Check if file is present for this school student
+        if (!fileMap.has(`schoolIdPdf_${i}`)) {
           sendError(res, "School ID PDF is required for School Student", HttpStatus.BAD_REQUEST)
           return
         }
-
-        member.schoolIdPdf = pdfUrl
       }
 
       if (member.gender === Gender.Female) femaleCount++
@@ -173,54 +132,113 @@ export const registerTeam = async (req: Request, res: Response): Promise<void> =
       return
     }
 
-    const team = await prisma.$transaction(async (tx) => {
-      const membersToCreate = body.members.map((member) => ({
-        fullName: member.fullName,
-        email: member.email,
-        gender: member.gender,
-        role: member.role,
-        isIeeeMember: member.isIeeeMember === "Yes" || member.isIeeeMember === true,
-        ieeeNumber: member.ieeeNumber || null,
-        schoolStandard: member.schoolStandard || null,
-        schoolIdPdf: member.schoolIdPdf || null,
-      }))
-      
-      const newTeam = await tx.team.create({
-        data: {
-          teamName: body.teamName,
-          theme: body.theme,
-          members: {
-            create: membersToCreate,
+    // --- Cloudinary upload and DB transaction together ---
+    let uploadedCloudinaryFiles: { fieldname: string; url: string; public_id: string }[] = []
+    try {
+      const team = await prisma.$transaction(async (tx) => {
+        // Upload files to Cloudinary inside the transaction
+        const uploadPromises = Array.from(fileMap.entries()).map(async ([fieldname, file]) => {
+          return new Promise<{ fieldname: string; url: string; public_id: string }>((resolve, reject) => {
+            const uniqueFileName = `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`
+            const uploadStream = cloudinary.uploader.upload_stream(
+              {
+                folder: 'ieee-hackathon/school-ids',
+                public_id: uniqueFileName,
+                resource_type: 'auto',
+              },
+              (error, result) => {
+                if (error) {
+                  reject(error)
+                } else {
+                  resolve({ fieldname, url: result!.secure_url, public_id: result!.public_id })
+                }
+              }
+            )
+
+            uploadStream.on('error', (err) => {
+              reject(err)
+            })
+
+            uploadStream.end(file.data)
+          })
+        })
+
+        const uploadResults = await Promise.all(uploadPromises)
+        uploadedCloudinaryFiles = uploadResults
+
+        // Map fieldname to url for easy access
+        const cloudinaryUrls: { [key: string]: string } = {}
+        uploadResults.forEach(({ fieldname, url }) => {
+          cloudinaryUrls[fieldname] = url
+        })
+
+        // Attach cloudinary URLs to members
+        for (let i = 0; i < body.members.length; i++) {
+          const member = body.members[i]
+          if (member.role === MemberRole.SchoolStudent) {
+            member.schoolIdPdf = cloudinaryUrls[`schoolIdPdf_${i}`]
+          }
+        }
+
+        const membersToCreate = body.members.map((member) => ({
+          fullName: member.fullName,
+          email: member.email,
+          gender: member.gender,
+          role: member.role,
+          isIeeeMember: member.isIeeeMember === "Yes" || member.isIeeeMember === true,
+          ieeeNumber: member.ieeeNumber || null,
+          schoolStandard: member.schoolStandard || null,
+          schoolIdPdf: member.schoolIdPdf || null,
+        }))
+
+        const newTeam = await tx.team.create({
+          data: {
+            teamName: body.teamName,
+            theme: body.theme,
+            members: {
+              create: membersToCreate,
+            },
           },
-        },
-        include: { members: true },
+          include: { members: true },
+        })
+
+        const teamLeader = body.members.find(
+          (m: any) => m.role === MemberRole.TeamLeader
+        )
+
+        if (teamLeader) {
+          await tx.user.create({
+            data: {
+              name: teamLeader.fullName,
+              email: teamLeader.email,
+              password: await hashPassword("qwert123"),
+              role: "participant",
+              teamId: newTeam.id,
+            },
+          })
+        }
+
+        return newTeam
       })
 
-      const teamLeader = body.members.find(
-        (m: any) => m.role === MemberRole.TeamLeader
+      sendSuccess(
+        res,
+        { teamId: team.id, teamName: team.teamName },
+        "Team registered successfully",
+        HttpStatus.CREATED
       )
-
-      if (teamLeader) {
-        await tx.user.create({
-          data: {
-            name: teamLeader.fullName,
-            email: teamLeader.email,
-            password: await hashPassword("qwert123"),
-            role: "participant",
-            teamId: newTeam.id,
-          },
-        })
+    } catch (error: any) {
+      // If transaction fails, delete any uploaded files from Cloudinary
+      if (uploadedCloudinaryFiles.length > 0) {
+        await Promise.all(
+          uploadedCloudinaryFiles.map(file =>
+            cloudinary.uploader.destroy(file.public_id, { resource_type: 'auto' }).catch(() => {})
+          )
+        )
       }
-
-      return newTeam
-    })
-
-    sendSuccess(
-      res,
-      { teamId: team.id, teamName: team.teamName },
-      "Team registered successfully",
-      HttpStatus.CREATED
-    )
+      console.error("Register team error:", error)
+      sendError(res, "Failed to register team", HttpStatus.INTERNAL_SERVER_ERROR)
+    }
   } catch (error: any) {
     console.error("Register team error:", error)
     sendError(res, "Failed to register team", HttpStatus.INTERNAL_SERVER_ERROR)
