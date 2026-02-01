@@ -97,10 +97,12 @@ model TeamMember {
   ieeeNumber     String?
   schoolStandard String?
   schoolIdPdf    String?
+  contactNo      String?
+  instituteName  String?
   createdAt      DateTime   @default(now())
   updatedAt      DateTime   @default(now()) @updatedAt   
   teamId         String
-
+  
   // Relations
   team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
   

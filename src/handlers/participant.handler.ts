@@ -14,6 +14,8 @@ interface TeamMemberInput {
   ieeeNumber?: string;
   schoolStandard?: string;
   schoolIdPdf?: string;
+  contactNo?: string;
+  instituteName?: string;
 }
 
 interface RegisterTeamInput {
@@ -43,6 +45,7 @@ export const registerTeam = async (req: Request, res: Response): Promise<void> =
     }
     const files = (req as any).files as { [key: string]: any }
 
+    
     if (body.members.length !== 6) {
       sendError(res, "Team must have exactly 6 members", HttpStatus.BAD_REQUEST)
       return
@@ -187,6 +190,8 @@ export const registerTeam = async (req: Request, res: Response): Promise<void> =
           ieeeNumber: member.ieeeNumber || null,
           schoolStandard: member.schoolStandard || null,
           schoolIdPdf: member.schoolIdPdf || null,
+          contactNo: member.contactNo || null,
+          instituteName: member.instituteName || null,
         }))
 
         const newTeam = await tx.team.create({
