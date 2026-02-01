@@ -22,6 +22,7 @@ app.use(
       "http://localhost:3001",
       "https://techfortomorrow.tech",
       "https://dashboard.techfortomorrow.tech",
+      "https://00c2656722b6.ngrok-free.app"
     ],
     credentials: true,
   }),

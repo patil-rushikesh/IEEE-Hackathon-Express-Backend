@@ -364,36 +364,80 @@ export const createOrUpdateSubmission = async (req: Request, res: Response): Pro
       demoVideoUrl,
       liveLinkUrl,
       codeRepoUrl,
-      pptUrl,
     } = req.body;
 
-    const submission = await prisma.submission.upsert({
-      where: { teamId: user.teamId },
-      update: {
-        title,
-        tagline,
-        description,
-        problemStatement,
-        demoVideoUrl,
-        liveLinkUrl,
-        codeRepoUrl,
-        pptUrl,
-        updatedAt: new Date(),
-      },
-      create: {
-        teamId: user.teamId,
-        title,
-        tagline,
-        description,
-        problemStatement,
-        demoVideoUrl,
-        liveLinkUrl,
-        codeRepoUrl,
-        pptUrl,
-      },
-    });
+    const files = (req as any).files as { [key: string]: any };
+    let pptUrl = req.body.pptUrl; // Keep existing URL if no new file
+    let uploadedCloudinaryPublicId: string | null = null;
 
-    sendSuccess(res, { submission }, 'Submission saved successfully');
+    try {
+      // If a PPT file is uploaded, upload it to Cloudinary
+      if (files?.pptFile) {
+        const pptFile = Array.isArray(files.pptFile) ? files.pptFile[0] : files.pptFile;
+
+        await new Promise<void>((resolve, reject) => {
+          const uniqueFileName = `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+          const uploadStream = cloudinary.uploader.upload_stream(
+            {
+              folder: 'ieee-hackathon/presentations',
+              public_id: uniqueFileName,
+              resource_type: 'raw',
+            },
+            (error, result) => {
+              if (error) {
+                reject(error);
+              } else {
+                uploadedCloudinaryPublicId = result!.public_id;
+                pptUrl = result!.secure_url;
+                resolve();
+              }
+            }
+          );
+
+          uploadStream.on('error', (err) => {
+            reject(err);
+          });
+
+          uploadStream.end(pptFile.data);
+        });
+      }
+
+      const submission = await prisma.submission.upsert({
+        where: { teamId: user.teamId },
+        update: {
+          title,
+          tagline,
+          description,
+          problemStatement,
+          demoVideoUrl,
+          liveLinkUrl,
+          codeRepoUrl,
+          pptUrl,
+          updatedAt: new Date(),
+        },
+        create: {
+          teamId: user.teamId,
+          title,
+          tagline,
+          description,
+          problemStatement,
+          demoVideoUrl,
+          liveLinkUrl,
+          codeRepoUrl,
+          pptUrl,
+        },
+      });
+
+      sendSuccess(res, { submission }, 'Submission saved successfully');
+    } catch (error: any) {
+      // If database operation fails and we uploaded a file, delete it from Cloudinary
+      const publicId = uploadedCloudinaryPublicId;
+      if (publicId) {
+        await cloudinary.uploader.destroy(publicId, { resource_type: 'raw' }).catch(() => {});
+      }
+      console.error('Create/update submission error:', error);
+      sendError(res, 'Failed to save submission', HttpStatus.INTERNAL_SERVER_ERROR);
+    }
   } catch (error) {
     console.error('Create/update submission error:', error);
     sendError(res, 'Failed to save submission', HttpStatus.INTERNAL_SERVER_ERROR);
