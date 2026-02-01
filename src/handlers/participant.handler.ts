@@ -132,11 +132,9 @@ export const registerTeam = async (req: Request, res: Response): Promise<void> =
       return
     }
 
-    // --- Cloudinary upload and DB transaction together ---
     let uploadedCloudinaryFiles: { fieldname: string; url: string; public_id: string }[] = []
     try {
       const team = await prisma.$transaction(async (tx) => {
-        // Upload files to Cloudinary inside the transaction
         const uploadPromises = Array.from(fileMap.entries()).map(async ([fieldname, file]) => {
           return new Promise<{ fieldname: string; url: string; public_id: string }>((resolve, reject) => {
             const uniqueFileName = `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`
@@ -144,7 +142,7 @@ export const registerTeam = async (req: Request, res: Response): Promise<void> =
               {
                 folder: 'ieee-hackathon/school-ids',
                 public_id: uniqueFileName,
-                resource_type: 'auto',
+                resource_type: 'raw',
               },
               (error, result) => {
                 if (error) {
