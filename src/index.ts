@@ -20,7 +20,7 @@ app.use(
     origin: [
       "http://localhost:3000",
       "http://localhost:3001",
-      "https://techfortomorrow.tech",
+      "https://www.techfortomorrow.tech",
       "https://dashboard.techfortomorrow.tech",
       "https://00c2656722b6.ngrok-free.app"
     ],
